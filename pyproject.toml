@@ -47,3 +47,6 @@ dev = [
 
 [tool.uv.sources]
 numpyro-oop = { workspace = true }
+
+[tool.setuptools.packages.find]
+include = ["numpyro_oop*"]

@@ -9,14 +9,12 @@ import numpyro
 import numpyro.distributions as dist
 import pandas as pd
 from numpyro.diagnostics import hpdi
-from numpyro.infer.reparam import LocScaleReparam
 
 from numpyro_oop import BaseNumpyroModel
 
 import wandb
 
-# TODO: initialize the Weights & Biases run
-run = None
+
 
 # TODO: log the experiment settings to wandb
 hyperparams = {
@@ -25,6 +23,9 @@ hyperparams = {
     'device_count': 4
 
 }
+
+# TODO: initialize the Weights & Biases run
+run = wandb.init(project='ws-test', name='numpyro_oop', config=hyperparams)
 
 numpyro.set_platform(hyperparams['platform'])
 numpyro.set_host_device_count(hyperparams['device_count'])
@@ -39,7 +40,8 @@ dset["MarriageScaled"] = dset.Marriage.pipe(standardize)
 dset["DivorceScaled"] = dset.Divorce.pipe(standardize)
 
 # TODO: create an artifact object and log the dataset
-artifact = None
+table = wandb.Table(dataframe=dset)
+run.log({'data': table})
 
 def plot_regression(x, y_mean, y_hpdi):
     # Sort values for plotting by x axis
@@ -80,13 +82,14 @@ m1.mcmc.print_summary(0.90)
 preds = m1.predict()
 mean_mu = preds["mu"].mean(axis=0)
 hpdi_mu = hpdi(preds["mu"], 0.9)
+run.log({'predictions': preds})
 
 # TODO: log all figure objects to Weights & Biases
 fig, ax = plot_regression(dset.MarriageScaled.values, mean_mu, hpdi_mu)
 ax.set(
     xlabel="Marriage rate", ylabel="Divorce rate", title="Regression line with 90% CI"
 )
-# TODO: LOG
+run.log({'regression': fig})
 
 preds = m1.predict(prior=True, model_kwargs={"sample_conditional": False})
 mean_prior_pred = preds["obs"].mean(axis=0)
@@ -95,6 +98,7 @@ fig, ax = plot_regression(dset.MarriageScaled.values, mean_prior_pred, hpdi_prio
 ax.set(
     xlabel="Marriage rate", ylabel="Divorce rate", title="Prior predictions with 90% CI"
 )
+run.log({'prior': fig})
 
 preds = m1.predict(prior=False, model_kwargs={"sample_conditional": False})
 mean_post_pred = preds["obs"].mean(axis=0)
@@ -105,6 +109,7 @@ ax.set(
     ylabel="Divorce rate",
     title="Posterior predictions with 90% CI",
 )
+run.log({'posterior': fig})
 
 fig, ax = plt.subplots(1, 1, figsize=(6, 4), layout="constrained")
 ax = az.plot_forest(
@@ -118,3 +123,4 @@ ax = az.plot_forest(
     ax=ax,
 )
 ax[0].set_title("Model parameters")
+run.log({'forest': fig})
